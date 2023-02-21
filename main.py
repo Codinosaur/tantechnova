@@ -42,19 +42,19 @@ class dehaze_net(nn.Module):
         return clean_image
 model = dehaze_net()
 
-model.load_state_dict(torch.load('snapshots/dehazer.pth',map_location=torch.device('cpu')))
+model.load_state_dict(torch.load('dehazer.pth',map_location=torch.device('cpu')))
 
 device = torch.device('cpu')
 model.to(device)
 
 def worker_function(stop_event, result_queue):
 
-    res=60 #more the resolution,more the time
+    res=50 #more the resolution,more the time
     Ratio=[4,3] #Aspect ratio of camera, format=[width,height]
 
-    cap = cv.VideoCapture(0)
-    cap.set(cv.CAP_PROP_FRAME_WIDTH, res*Ratio[0])
-    cap.set(cv.CAP_PROP_FRAME_HEIGHT, res*Ratio[1])
+    cap = cv.VideoCapture(-1)
+    #cap.set(cv.CAP_PROP_FRAME_WIDTH,res*Ratio[0])
+    #cap.set(cv.CAP_PROP_FRAME_HEIGHT,res*Ratio[1])
     assert cap.isOpened()
 
     while not stop_event.is_set():
@@ -64,7 +64,7 @@ def worker_function(stop_event, result_queue):
         # do your inference here
         # print(frame.shape) #(480, 640, 3)
         s=time.perf_counter()
-        # frame = cv.resize(frame, (320, 240))
+        frame = cv.resize(frame, (res*Ratio[0], res*Ratio[1]))
         frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
         frame = torch.from_numpy(frame.transpose((2, 0, 1))).float().unsqueeze(0) / 255.0
         frame = frame.to(device)
@@ -74,7 +74,8 @@ def worker_function(stop_event, result_queue):
 
         dehazed_frame = (dehazed_frame * 255).clip(0, 255).transpose((1, 2, 0)).astype(np.uint8)
         dehazed_frame = cv.cvtColor(dehazed_frame, cv.COLOR_RGB2BGR)
-        print(time.perf_counter()-s)
+        #print(time.perf_counter()-s)
+        #print(frame.shape)
 
         result_queue.put(dehazed_frame)
 
@@ -89,6 +90,7 @@ if __name__ == "__main__":
     worker_thread.start()
 
     cv.namedWindow("window", cv.WINDOW_NORMAL)
+    cv.resizeWindow('window', 1680, 984) 
 
     while True:
         # handle new result, if any

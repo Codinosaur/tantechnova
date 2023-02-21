@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Dehazer
+Comment=Opens the dehazer on startup
+NoDisplay=False
+Exec=/home/pi/Project/startup.sh
+NotShowIn=GNOME;KDE;XFCE;
