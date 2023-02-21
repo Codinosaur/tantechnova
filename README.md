@@ -1,13 +1,26 @@
 # AtalMarathon2023
-this project is private, but members of this organisation can view,edit,merge...
-This is most simplified version of https://github.com/MayankSingal/PyTorch-Image-Dehazing
-The project supports video dehaze,live.
+This project is private, but members of this organisation can view,edit,merge.
+
+This is the most simplified version of https://github.com/MayankSingal/PyTorch-Image-Dehazing.
+
+The project supports video dehazing, live on the Raspberry Pi 400.
 
 # Run:
+Make sure that the shell environment is in the directory with `main.py` and `dehazer.pth`
+
 ```
+cd /path/to/python/file
 python main.py
 ```
+To ensure the file opens at startup of desktop environment, place `startup.desktop` in `/etc/xdg/autostart/`.
 
-# Train,test...:
-see original repository. 
-Train there, import model here
+Add the location of `startup.sh` in `startup.desktop`.
+```
+Exec=/path/to/startup.sh
+```
+(Make sure to set `startup.sh`'s permissions to `+x` so it can be executed. `startup.sh` is recommended to be placed in `/path/to/python/file`)
+
+# Train, test.:
+See original repository. 
+
+Train there, import Model here.
