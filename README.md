@@ -1,4 +1,4 @@
-# ATL Marathon2023
+# ATL Marathon 2023
 This project is private, but members of this organisation can view, edit, merge.
 
 This is the most simplified version of https://github.com/MayankSingal/PyTorch-Image-Dehazing.
