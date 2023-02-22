@@ -24,9 +24,9 @@ Exec=/path/to/startup.sh
 chmod rwxr-xr-x /path/to/startup.sh
 ```
 
-*`startup.sh` is recommended to be placed in `/path/to/python/file`
+* `startup.sh` is recommended to be placed in `/path/to/python/file`
 
-*In `startup.sh`, make sure to change the directory path.
+* In `startup.sh`, make sure to change the directory path.
 ```sh
 #!/bin/sh
 
@@ -34,7 +34,7 @@ cd /path/to/python/file
 python3 main.py
 ```
 
-*`road edit 1.png` has been set as the background image of the desktop environnment.
+* `road edit 1.png` has been set as the background image of the desktop environnment.
 
 
 # Train, test.:
