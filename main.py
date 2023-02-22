@@ -7,19 +7,19 @@ import torch.nn as nn
 import math
 import time
 
-
+# Define the dehaze network as a subclass of torch.nn.Module
 class dehaze_net(nn.Module):
 
     def __init__(self):
         super(dehaze_net, self).__init__()
 
-        self.relu = nn.ReLU(inplace=True)
-    
-        self.e_conv1 = nn.Conv2d(3,3,1,1,0,bias=True) 
-        self.e_conv2 = nn.Conv2d(3,3,3,1,1,bias=True) 
-        self.e_conv3 = nn.Conv2d(6,3,5,1,2,bias=True) 
-        self.e_conv4 = nn.Conv2d(6,3,7,1,3,bias=True) 
-        self.e_conv5 = nn.Conv2d(12,3,3,1,1,bias=True) 
+        # Define the layers of the network
+        self.relu = nn.ReLU(inplace=True) 
+        self.e_conv1 = nn.Conv2d(3,3,1,1,0,bias=True)  
+        self.e_conv2 = nn.Conv2d(3,3,3,1,1,bias=True)  
+        self.e_conv3 = nn.Conv2d(6,3,5,1,2,bias=True)  
+        self.e_conv4 = nn.Conv2d(6,3,7,1,3,bias=True)  
+        self.e_conv5 = nn.Conv2d(12,3,3,1,1,bias=True)  
         
     def forward(self, x):
         source = []
@@ -40,72 +40,98 @@ class dehaze_net(nn.Module):
         clean_image = self.relu((x5 * x) - x5 + 1) 
         
         return clean_image
+
+# Create an instance of the dehaze network
 model = dehaze_net()
 
+# Load the pre-trained weights into the model
 model.load_state_dict(torch.load('dehazer.pth',map_location=torch.device('cpu')))
 
+# Set the device to CPU
 device = torch.device('cpu')
 model.to(device)
 
-def worker_function(stop_event, result_queue):
-
-    res=15 #more the resolution,more the time
-    Ratio=[16,9] #Aspect ratio of camera, format=[width,height]
-
+# Define a function to dehaze a video stream in a separate thread
+def thread_dehaze(stop_event, result_queue):
+    # Initialize the video capture object and check if it's successfully opened
     cap = cv.VideoCapture(-1)
-    #cap.set(cv.CAP_PROP_FRAME_WIDTH,res*Ratio[0])
-    #cap.set(cv.CAP_PROP_FRAME_HEIGHT,res*Ratio[1])
     assert cap.isOpened()
 
-    while not stop_event.is_set():
-        (success, frame) = cap.read()
-        if not success: break
+    # Set the resolution and aspect ratio of the camera
+    res = 18.75  # More the resolution, more the time took, value in percentage
+    Ratio = [1280, 720]  # Aspect ratio of camera (not in simplified form), format=[width,height],
+                          # print(cap.read()[1].shape), format=(height,width,colorspace)
 
-        # do your inference here
-        # print(frame.shape) #(480, 640, 3)
-        s=time.perf_counter()
-        frame = cv.resize(frame, (res*Ratio[0], res*Ratio[1]))
+    while not stop_event.is_set():
+        # Read the video frame
+        (success, frame) = cap.read()
+
+        # If frame is not read properly, break and go for another frame
+        if not success:
+            break
+
+        # Start timer to measure performance
+        s = time.perf_counter()
+
+        # Resize the frame with the set resolution and aspect ratio
+        frame = cv.resize(frame, (int(res*Ratio[0]/100), int(res*Ratio[1]/100)))# Resize image for fast dehazing
+
+        # Convert the frame to RGB color space
         frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
+
+        # Convert the frame to a PyTorch tensor and move it to the CPU
         frame = torch.from_numpy(frame.transpose((2, 0, 1))).float().unsqueeze(0) / 255.0
         frame = frame.to(device)
 
+        # Apply the dehazing model to the frame and move the result back to the CPU
         with torch.no_grad():
             dehazed_frame = model(frame).squeeze().cpu().numpy()
 
+        # Convert the dehazed frame to BGR color space
         dehazed_frame = (dehazed_frame * 255).clip(0, 255).transpose((1, 2, 0)).astype(np.uint8)
         dehazed_frame = cv.cvtColor(dehazed_frame, cv.COLOR_RGB2BGR)
-        #print(time.perf_counter()-s)
-        #print(frame.shape)
 
+        # Put the dehazed frame into the result queue
         result_queue.put(dehazed_frame)
 
+    # Release the video capture object
     cap.release()
 
 
 if __name__ == "__main__":
+    # Create an event object to signal the thread to stop and a queue to hold the most recently dehazed image
     stop_event = threading.Event()
-    result_queue = queue.Queue(maxsize=1)
-    worker_thread = threading.Thread(
-        target=worker_function, args=(stop_event, result_queue))
-    worker_thread.start()
+    result_queue = queue.Queue(maxsize=1)  # Thread queue contains only one image, that is the most recently dehazed
 
+    # Start the dehazing thread
+    thread = threading.Thread(target=thread_dehaze, args=(stop_event, result_queue))
+    thread.start()
+
+    # Create a named window and set it to full screen
     cv.namedWindow("window", cv.WINDOW_NORMAL)
     cv.setWindowProperty("window", cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
 
-
     while True:
-        # handle new result, if any
+        # Handle new result, if any
         try:
+            # Get the most recently dehazed frame from the result queue
             result_frame = result_queue.get_nowait()
+
+            # Show the most recently dehazed frame in the window
             cv.imshow("window", result_frame)
+
+            # Mark the task as done so that the queue frees up memory
             result_queue.task_done()
         except queue.Empty:
             pass
 
-        # GUI event processing
+        # Process GUI events
         key = cv.waitKey(1)
-        if key in (13, 27): # Enter, Escape
+
+        # If Enter key is pressed, break the loop and stop the dehazing thread
+        if key == 13:
             break
-    
+
+    # Signal the dehazing thread to stop and wait for it to join
     stop_event.set()
-    worker_thread.join()
+    thread.join()
