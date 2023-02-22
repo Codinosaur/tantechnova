@@ -18,7 +18,7 @@ Add the location of `startup.sh` in `startup.desktop`.
 ```.desktop
 Exec=/path/to/startup.sh
 ```
-Make sure to set `startup.sh`'s permissions to `+x` so it can be executed. `startup.sh` is recommended to be placed in `/path/to/python/file`
+Make sure to set `startup.sh`'s permissions to `rwxr-xr-x` so it can be executed. `startup.sh` is recommended to be placed in `/path/to/python/file`
 
 In `startup.sh`, make sure to change the directory path.
 ```sh
@@ -27,6 +27,7 @@ In `startup.sh`, make sure to change the directory path.
 cd /path/to/python/file
 python3 main.py
 ```
+`road edit 1.png` has been set as the background image of the desktop environnment.
 
 # Train, test.:
 See original repository. 
