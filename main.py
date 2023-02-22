@@ -90,7 +90,8 @@ if __name__ == "__main__":
     worker_thread.start()
 
     cv.namedWindow("window", cv.WINDOW_NORMAL)
-    cv.resizeWindow('window', 1680, 984) 
+    cv.setWindowProperty("window", cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
+
 
     while True:
         # handle new result, if any
