@@ -49,8 +49,8 @@ model.to(device)
 
 def worker_function(stop_event, result_queue):
 
-    res=50 #more the resolution,more the time
-    Ratio=[4,3] #Aspect ratio of camera, format=[width,height]
+    res=15 #more the resolution,more the time
+    Ratio=[16,9] #Aspect ratio of camera, format=[width,height]
 
     cap = cv.VideoCapture(-1)
     #cap.set(cv.CAP_PROP_FRAME_WIDTH,res*Ratio[0])
