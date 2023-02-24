@@ -98,6 +98,7 @@ def thread_dehaze(stop_event, result_queue):
     # Release the video capture object
     cap.release()
 
+#Function to add a shutdown button(transparent) to image
 def add_button_to_image(img, button_img, button_x, button_y, button_width, button_height):
     button_img=cv.resize(button_img, (button_width,button_height))
     # Split the button image into channels
@@ -124,17 +125,19 @@ if __name__ == "__main__":
     # Start the dehazing thread
     thread = threading.Thread(target=thread_dehaze, args=(stop_event, result_queue))
     thread.start()
-    shutdown=0
-    # Define the button state
-    button_down = False
 
-    # Create a named window and set it to full screen
+    shutdown=0 #If button has been ever pressed
+    
+    button_down = False # Button state
+
+    #Button callback
     def button_callback(event, x, y, flags, param):
         button_x=8
         button_y=8
         button_width=16
         button_height=16
         global button_down,shutdown
+
         if event == cv.EVENT_LBUTTONDOWN:
             if x >= button_x and x < button_x + button_width and y >= button_x and y < button_y + button_height:
                 button_down = True
@@ -143,10 +146,12 @@ if __name__ == "__main__":
                 print("Will shutdown")
                 cv.destroyAllWindows()
                 shutdown=1
-                
+
                 # Shutdown the Raspberry Pi
                 os.system("sudo shutdown -h now")
-            button_down = False
+            button_down = False #Reset state
+    
+    # Create a named window and set it to full screen
     cv.namedWindow("window", cv.WINDOW_NORMAL)
     cv.setWindowProperty("window", cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
 
@@ -157,12 +162,10 @@ if __name__ == "__main__":
             result_frame = result_queue.get_nowait()
 
             button_img = cv.imread("button.png", cv.IMREAD_UNCHANGED)
-
-            # Add the button to the image
-            img_with_button = add_button_to_image(result_frame, button_img, 8, 8, 16, 16)
-            # Show the most recently dehazed frame in the window
-            cv.imshow("window", img_with_button)
-            cv.setMouseCallback("window", button_callback)
+            result_frame = add_button_to_image(result_frame, button_img, 8, 8, 16, 16) # Add the button to the image
+            
+            cv.imshow("window", result_frame)# Show the most recently dehazed frame in the window
+            cv.setMouseCallback("window", button_callback)#Add a callback event
 
             # Mark the task as done so that the queue frees up memory
             result_queue.task_done()
@@ -172,7 +175,7 @@ if __name__ == "__main__":
         # Process GUI events
         key = cv.waitKey(1)
         # If Enter key is pressed, break the loop and stop the dehazing thread
-        if key == 13 or shutdown==1:
+        if key == 13 or shutdown==1:#When shutdown key or enter pressed,break the loop and close the program
             break
 
     # Signal the dehazing thread to stop and wait for it to join
