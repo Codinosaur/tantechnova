@@ -55,7 +55,7 @@ model.to(device)
 # Define a function to dehaze a video stream in a separate thread
 def thread_dehaze(stop_event, result_queue):
     # Initialize the video capture object and check if it's successfully opened
-    cap = cv.VideoCapture(0)
+    cap = cv.VideoCapture(-1)
     assert cap.isOpened()
 
     # Set the resolution and aspect ratio of the camera
