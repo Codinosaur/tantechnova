@@ -6,6 +6,7 @@ import numpy as np
 import torch.nn as nn
 import math
 import time
+import os
 
 # Define the dehaze network as a subclass of torch.nn.Module
 class dehaze_net(nn.Module):
@@ -54,7 +55,7 @@ model.to(device)
 # Define a function to dehaze a video stream in a separate thread
 def thread_dehaze(stop_event, result_queue):
     # Initialize the video capture object and check if it's successfully opened
-    cap = cv.VideoCapture(-1)
+    cap = cv.VideoCapture(0)
     assert cap.isOpened()
 
     # Set the resolution and aspect ratio of the camera
@@ -97,6 +98,23 @@ def thread_dehaze(stop_event, result_queue):
     # Release the video capture object
     cap.release()
 
+def add_button_to_image(img, button_img, button_x, button_y, button_width, button_height):
+    button_img=cv.resize(button_img, (button_width,button_height))
+    # Split the button image into channels
+    button_bgr = button_img[:, :, :3]
+    button_alpha = button_img[:, :, 3]
+
+    # Create a mask from the alpha channel
+    mask = cv.merge((button_alpha, button_alpha, button_alpha))
+
+    # Draw the button image on the image
+    button_roi = img[button_y:button_y+button_height, button_x:button_x+button_width]
+    button_roi_bg = cv.bitwise_and(button_roi, cv.bitwise_not(mask))
+    button_roi_fg = cv.bitwise_and(button_bgr, mask)
+    button_roi_combined = cv.add(button_roi_bg, button_roi_fg)
+    img[button_y:button_y+button_height, button_x:button_x+button_width] = button_roi_combined
+
+    return img
 
 if __name__ == "__main__":
     # Create an event object to signal the thread to stop and a queue to hold the most recently dehazed image
@@ -106,8 +124,29 @@ if __name__ == "__main__":
     # Start the dehazing thread
     thread = threading.Thread(target=thread_dehaze, args=(stop_event, result_queue))
     thread.start()
+    shutdown=0
+    # Define the button state
+    button_down = False
 
     # Create a named window and set it to full screen
+    def button_callback(event, x, y, flags, param):
+        button_x=8
+        button_y=8
+        button_width=16
+        button_height=16
+        global button_down,shutdown
+        if event == cv.EVENT_LBUTTONDOWN:
+            if x >= button_x and x < button_x + button_width and y >= button_x and y < button_y + button_height:
+                button_down = True
+        elif event == cv.EVENT_LBUTTONUP:
+            if button_down and x >= button_x and x < button_x + button_width and y >= button_y and y < button_y + button_height:
+                print("Will shutdown")
+                cv.destroyAllWindows()
+                shutdown=1
+                
+                # Shutdown the Raspberry Pi
+                os.system("sudo shutdown -h now")
+            button_down = False
     cv.namedWindow("window", cv.WINDOW_NORMAL)
     cv.setWindowProperty("window", cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
 
@@ -117,8 +156,13 @@ if __name__ == "__main__":
             # Get the most recently dehazed frame from the result queue
             result_frame = result_queue.get_nowait()
 
+            button_img = cv.imread("button.png", cv.IMREAD_UNCHANGED)
+
+            # Add the button to the image
+            img_with_button = add_button_to_image(result_frame, button_img, 8, 8, 16, 16)
             # Show the most recently dehazed frame in the window
-            cv.imshow("window", result_frame)
+            cv.imshow("window", img_with_button)
+            cv.setMouseCallback("window", button_callback)
 
             # Mark the task as done so that the queue frees up memory
             result_queue.task_done()
@@ -127,9 +171,8 @@ if __name__ == "__main__":
 
         # Process GUI events
         key = cv.waitKey(1)
-
         # If Enter key is pressed, break the loop and stop the dehazing thread
-        if key == 13:
+        if key == 13 or shutdown==1:
             break
 
     # Signal the dehazing thread to stop and wait for it to join
