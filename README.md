@@ -6,15 +6,15 @@ This is the most simplified version of https://github.com/MayankSingal/PyTorch-I
 The project supports video dehazing, live on the Raspberry Pi 400.
 
 # Run:
-* Make sure that the shell environment is in the directory with `main.py` and `dehazer.pth`
+* Make sure that the shell environment is in the directory with `main.py`, `button.png` and `dehazer.pth`
 ```sh
 cd /path/to/python/file
 python main.py
 ```
 
-* To ensure the file opens at startup of desktop environment, place `startup.desktop` in `/etc/xdg/autostart/`.
+* To ensure the file opens at startup of desktop environment, place `to add in other folders/startup.desktop` in `/etc/xdg/autostart/`.
 
-* Add the location of `startup.sh` in `startup.desktop`.
+* Add the location of `startup.sh` in `To add in other folders/startup.desktop`.
 ```.desktop
 Exec=/path/to/startup.sh
 ```
@@ -34,8 +34,9 @@ cd /path/to/python/file
 python3 main.py
 ```
 
-* `road edit 1.png` has been set as the background image of the desktop environnment.
+* `To add in other folders/road edit 1.png` has been set as the background image of the desktop environnment.
 
+* `button.png` is the picture of a button that will be displayed inside the frame.
 
 # Train, test.:
 See original repository for information on training.
