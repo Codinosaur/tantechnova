@@ -1,7 +1,5 @@
 # ATL Marathon 2023
-This project is private, but members of this organisation can view, edit, merge.
-
-This is the most simplified version of https://github.com/MayankSingal/PyTorch-Image-Dehazing.
+This is our submission to the ATL Marathon 2023.
 
 The project supports video dehazing, live on the Raspberry Pi 400.
 
@@ -38,6 +36,6 @@ python3 main.py
 
 
 # Train, test.:
-See original repository for information on training.
+See [original repository](https://github.com/MayankSingal/PyTorch-Image-Dehazing) for information on training.
 
 Train there, import the Model here.
