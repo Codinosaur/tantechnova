@@ -38,4 +38,4 @@ python3 main.py
 # Train, test.:
 See [original repository](https://github.com/MayankSingal/PyTorch-Image-Dehazing) for information on training.
 
-Train there, import the Model here.
+Train there, import the Model (`dehazer.pth`) here.
