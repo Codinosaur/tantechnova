@@ -103,25 +103,6 @@ def thread_dehaze(stop_event, result_queue):
     # Release the video capture object
     cap.release()
 
-#Function to add a button(support even transparent image) to main image
-def add_button_to_image(img, button_img, button_x, button_y, button_width, button_height):
-    button_img=cv.resize(button_img, (button_width,button_height))
-    # Split the button image into channels
-    button_bgr = button_img[:, :, :3]
-    button_alpha = button_img[:, :, 3]
-
-    # Create a mask from the alpha channel
-    mask = cv.merge((button_alpha, button_alpha, button_alpha))
-
-    # Draw the button image on the image
-    button_roi = img[button_y:button_y+button_height, button_x:button_x+button_width]
-    button_roi_bg = cv.bitwise_and(button_roi, cv.bitwise_not(mask))
-    button_roi_fg = cv.bitwise_and(button_bgr, mask)
-    button_roi_combined = cv.add(button_roi_bg, button_roi_fg)
-    img[button_y:button_y+button_height, button_x:button_x+button_width] = button_roi_combined
-
-    return img
-
 def update_value(x):
     global res
     res = x
@@ -170,9 +151,6 @@ if __name__ == "__main__":
         try:
             # Get the most recently dehazed frame from the result queue
             result_frame = result_queue.get_nowait()
-
-            # button_img = cv.imread("button.png", cv.IMREAD_UNCHANGED)
-            # result_frame = add_button_to_image(result_frame, button_img, 0, 0, 16, 16) # Add the button to the image
             
             cv.imshow("window", result_frame)# Show the most recently dehazed frame in the window
             cv.setMouseCallback("window", on_mouse,{'start_time': 0})#Add a callback event
