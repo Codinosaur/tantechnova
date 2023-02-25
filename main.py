@@ -1,3 +1,4 @@
+# Import required libraries
 import cv2 as cv
 import threading
 import queue
@@ -7,6 +8,13 @@ import torch.nn as nn
 import math
 import time
 import os
+
+# Set the resolution and aspect ratio of the camera
+res = 19  # More the resolution, more the time took, value in percentage,
+             # this is only default value set (with respect to the project's 1280x720, so the value may vary for each camera),
+             # it can be adjusted in GUI with slider.
+             
+camera=0 # 0 means default camera
 
 # Define the dehaze network as a subclass of torch.nn.Module
 class dehaze_net(nn.Module):
@@ -21,7 +29,7 @@ class dehaze_net(nn.Module):
         self.e_conv3 = nn.Conv2d(6,3,5,1,2,bias=True)  
         self.e_conv4 = nn.Conv2d(6,3,7,1,3,bias=True)  
         self.e_conv5 = nn.Conv2d(12,3,3,1,1,bias=True)  
-
+        
     def forward(self, x):
         source = []
         source.append(x)
@@ -39,7 +47,7 @@ class dehaze_net(nn.Module):
         x5 = self.relu(self.e_conv5(concat3))
 
         clean_image = self.relu((x5 * x) - x5 + 1) 
-
+        
         return clean_image
 
 # Create an instance of the dehaze network
@@ -52,16 +60,13 @@ model.load_state_dict(torch.load('dehazer.pth',map_location=torch.device('cpu'))
 device = torch.device('cpu')
 model.to(device)
 
+
 # Define a function to dehaze a video stream in a separate thread
 def thread_dehaze(stop_event, result_queue):
     # Initialize the video capture object and check if it's successfully opened
-    cap = cv.VideoCapture(-1)
+    cap = cv.VideoCapture(camera)# Load the video capture, change -1 to 0 to use the code in windows !important
     assert cap.isOpened()
-
-    # Set the resolution and aspect ratio of the camera
-    res = 18.75  # More the resolution, more the time took, value in percentage
-    Ratio = [1280, 720]  # Aspect ratio of camera (not in simplified form), format=[width,height],
-                          # print(cap.read()[1].shape), format=(height,width,colorspace)
+    Ratio = cap.read()[1].shape[:2][::-1]  # Aspect ratio of camera (not in simplified form), format=[width,height]
 
     while not stop_event.is_set():
         # Read the video frame
@@ -98,7 +103,7 @@ def thread_dehaze(stop_event, result_queue):
     # Release the video capture object
     cap.release()
 
-#Function to add a shutdown button(transparent) to image
+#Function to add a button(support even transparent image) to main image
 def add_button_to_image(img, button_img, button_x, button_y, button_width, button_height):
     button_img=cv.resize(button_img, (button_width,button_height))
     # Split the button image into channels
@@ -117,6 +122,31 @@ def add_button_to_image(img, button_img, button_x, button_y, button_width, butto
 
     return img
 
+def update_value(x):
+    global res
+    res = x
+# Define the callback function
+def on_mouse(event, x, y, flags, param):
+    global shutdown
+    if event == cv.EVENT_LBUTTONDOWN:
+        # Store the current time when the left mouse button is pressed down
+        param['start_time'] = cv.getTickCount()
+    elif event == cv.EVENT_LBUTTONUP:
+        # Calculate the duration of the left mouse button press
+        end_time = cv.getTickCount()
+        duration = (end_time - param['start_time']) / cv.getTickFrequency()
+
+        # If the duration is longer than 3 seconds, shutdown
+        if duration > 3:
+            print("Will shutdown")
+            cv.destroyAllWindows()
+            shutdown=1
+            stop_event.set()
+
+            # Shutdown the Raspberry Pi
+            os.system("sudo shutdown -h now")
+
+
 if __name__ == "__main__":
     # Create an event object to signal the thread to stop and a queue to hold the most recently dehazed image
     stop_event = threading.Event()
@@ -127,33 +157,13 @@ if __name__ == "__main__":
     thread.start()
 
     shutdown=0 #If button has been ever pressed
-
     button_down = False # Button state
-
-    #Button callback
-    def button_callback(event, x, y, flags, param):
-        button_x=8
-        button_y=8
-        button_width=16
-        button_height=16
-        global button_down,shutdown
-
-        if event == cv.EVENT_LBUTTONDOWN:
-            if x >= button_x and x < button_x + button_width and y >= button_x and y < button_y + button_height:
-                button_down = True
-        elif event == cv.EVENT_LBUTTONUP:
-            if button_down and x >= button_x and x < button_x + button_width and y >= button_y and y < button_y + button_height:
-                print("Will shutdown")
-                cv.destroyAllWindows()
-                shutdown=1
-
-                # Shutdown the Raspberry Pi
-                os.system("sudo shutdown -h now")
-            button_down = False #Reset state
-
+    
     # Create a named window and set it to full screen
     cv.namedWindow("window", cv.WINDOW_NORMAL)
     cv.setWindowProperty("window", cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
+    cv.createTrackbar('Resolution', "window", res, 100, update_value)
+    cv.setTrackbarMin('Resolution',"window",10)
 
     while True:
         # Handle new result, if any
@@ -161,14 +171,15 @@ if __name__ == "__main__":
             # Get the most recently dehazed frame from the result queue
             result_frame = result_queue.get_nowait()
 
-            button_img = cv.imread("button.png", cv.IMREAD_UNCHANGED)
-            result_frame = add_button_to_image(result_frame, button_img, 8, 8, 16, 16) # Add the button to the image
-
+            # button_img = cv.imread("button.png", cv.IMREAD_UNCHANGED)
+            # result_frame = add_button_to_image(result_frame, button_img, 0, 0, 16, 16) # Add the button to the image
+            
             cv.imshow("window", result_frame)# Show the most recently dehazed frame in the window
-            cv.setMouseCallback("window", button_callback)#Add a callback event
+            cv.setMouseCallback("window", on_mouse,{'start_time': 0})#Add a callback event
 
             # Mark the task as done so that the queue frees up memory
             result_queue.task_done()
+        
         except queue.Empty:
             pass
 
