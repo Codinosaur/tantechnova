@@ -14,7 +14,7 @@ res = 19  # More the resolution, more the time took, value in percentage,
              # this is only default value set (with respect to the project's 1280x720, so the value may vary for each camera),
              # it can be adjusted in GUI with slider.
              
-camera=-1 # 0 means default camera
+camera=-1 # 0 means default camera, -1 is used for Raspberry pi's camera
 
 # Define the dehaze network as a subclass of torch.nn.Module
 class dehaze_net(nn.Module):
@@ -67,7 +67,6 @@ def thread_dehaze(stop_event, result_queue):
     cap = cv.VideoCapture(camera)# Load the video capture, change -1 to 0 to use the code in windows !important
     assert cap.isOpened()
     Ratio = cap.read()[1].shape[:2][::-1]  # Aspect ratio of camera (not in simplified form), format=[width,height]
-
     while not stop_event.is_set():
         # Read the video frame
         (success, frame) = cap.read()
