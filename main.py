@@ -14,7 +14,7 @@ res = 19  # More the resolution, more the time took, value in percentage,
              # this is only default value set (with respect to the project's 1280x720, so the value may vary for each camera),
              # it can be adjusted in GUI with slider.
              
-camera=0 # 0 means default camera
+camera=-1 # 0 means default camera
 
 # Define the dehaze network as a subclass of torch.nn.Module
 class dehaze_net(nn.Module):
