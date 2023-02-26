@@ -9,7 +9,7 @@ The project supports video dehazing, live on the Raspberry Pi 400.
 ```sh
 #startup.sh
 $ cd /path/to/python/folder
-$ python main.py 
+$ python3 main.py 
 ```
 
 * To ensure the file opens at startup of desktop environment, place `to add in other folders/startup.desktop` in `/etc/xdg/autostart/`.
@@ -30,11 +30,11 @@ chmod rwxr-xr-x /path/to/startup.sh
 ```sh
 #!/bin/sh
 
-cd /path/to/python/file
+cd /path/to/python/folder
 python3 main.py
 ```
 
-* `To add in other folders/road edit 1.png` has been set as the background image of the desktop environnment.
+* `/Others/Wallpaper.png` has been set as the background image of the desktop environnment.
 
 # Train, test.:
 See [original repository](https://github.com/MayankSingal/PyTorch-Image-Dehazing) for information on training.
