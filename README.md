@@ -34,8 +34,6 @@ python3 main.py
 
 * `To add in other folders/road edit 1.png` has been set as the background image of the desktop environnment.
 
-* `button.png` is the picture of a button that will be displayed inside the frame.
-
 # Train, test.:
 See [original repository](https://github.com/MayankSingal/PyTorch-Image-Dehazing) for information on training.
 
