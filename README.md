@@ -4,10 +4,12 @@ This is our submission to the ATL Marathon 2023.
 The project supports video dehazing, live on the Raspberry Pi 400.
 
 # Run:
-* Make sure that the shell environment is in the directory with `main.py`, `button.png` and `dehazer.pth`
+* The below is for Raspberry Pi implementation of full project.
+* Make sure that the shell environment is in the directory with `main.py`, and `dehazer.pth`
 ```sh
-cd /path/to/python/file
-python main.py
+#startup.sh
+$ cd /path/to/python/folder
+$ python main.py 
 ```
 
 * To ensure the file opens at startup of desktop environment, place `to add in other folders/startup.desktop` in `/etc/xdg/autostart/`.
