@@ -4,7 +4,7 @@ This is our submission to the ATL Marathon 2023.
 The project supports video dehazing, live on the Raspberry Pi 400.
 
 # Prototype
-* Prototype is a blender file named `3D Prototype.blend`, it can be imported in blender
+* Prototype is a blender file named `3D Prototype.blend`, it can be imported in blender.
 
 # Run:
 * The below is for Raspberry Pi implementation of full project.
@@ -42,4 +42,5 @@ python3 main.py
 # Train, test.:
 See [original repository](https://github.com/MayankSingal/PyTorch-Image-Dehazing) for information on training.
 
-Train there, import the Model (`dehazer.pth`) here.
+* Train there, import the trained Model (`dehazer.pth`) here.
+* This is because we don't focus on training, or the model. The pretrained one provided here is aldready good.
