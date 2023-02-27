@@ -3,6 +3,9 @@ This is our submission to the ATL Marathon 2023.
 
 The project supports video dehazing, live on the Raspberry Pi 400.
 
+# Prototype
+* Prototype is a blender file named `3D Prototype.blend`, it can be imported in blender
+
 # Run:
 * The below is for Raspberry Pi implementation of full project.
 * Make sure that the shell environment is in the directory with `main.py`, and `dehazer.pth`
