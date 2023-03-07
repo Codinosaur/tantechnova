@@ -1,20 +1,14 @@
 # Import required libraries
+from config import *
 import cv2 as cv
-import threading
-import queue
 import torch
 import numpy as np
 import torch.nn as nn
+import threading
+import queue
 import math
 import time
 import os
-
-# Set the resolution and aspect ratio of the camera
-res = 19  # More the resolution, more the time took, value in percentage,
-             # this is only default value set (with respect to the project's 1280x720, so the value may vary for each camera),
-             # it can be adjusted in GUI with slider.
-             
-camera=-1 # 0 means default camera, -1 is used for Raspberry pi's camera
 
 # Define the dehaze network as a subclass of torch.nn.Module
 class dehaze_net(nn.Module):
@@ -54,7 +48,7 @@ class dehaze_net(nn.Module):
 model = dehaze_net()
 
 # Load the pre-trained weights into the model
-model.load_state_dict(torch.load('dehazer.pth',map_location=torch.device('cpu')))
+model.load_state_dict(torch.load(dehazemodel,map_location=torch.device('cpu')))
 
 # Set the device to CPU
 device = torch.device('cpu')
@@ -63,11 +57,15 @@ model.to(device)
 
 # Define a function to dehaze a video stream in a separate thread
 def thread_dehaze(stop_event, result_queue):
+
     # Initialize the video capture object and check if it's successfully opened
     cap = cv.VideoCapture(camera)# Load the video capture, change -1 to 0 to use the code in windows !important
     assert cap.isOpened()
     Ratio = cap.read()[1].shape[:2][::-1]  # Aspect ratio of camera (not in simplified form), format=[width,height]
+
     while not stop_event.is_set():
+        global debug_mode
+
         # Read the video frame
         (success, frame) = cap.read()
 
@@ -75,11 +73,9 @@ def thread_dehaze(stop_event, result_queue):
         if not success:
             break
 
-        # Start timer to measure performance
-        s = time.perf_counter()
-
         # Resize the frame with the set resolution and aspect ratio
         frame = cv.resize(frame, (int(res*Ratio[0]/100), int(res*Ratio[1]/100)))# Resize image for fast dehazing
+        temp_frame = frame # Stores the initial frame,temporarily
 
         # Convert the frame to RGB color space
         frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
@@ -97,7 +93,10 @@ def thread_dehaze(stop_event, result_queue):
         dehazed_frame = cv.cvtColor(dehazed_frame, cv.COLOR_RGB2BGR)
 
         # Put the dehazed frame into the result queue
-        result_queue.put(dehazed_frame)
+        if debug_mode:
+            result_queue.put([dehazed_frame,temp_frame])
+        else:
+            result_queue.put(dehazed_frame)
 
     # Release the video capture object
     cap.release()
@@ -105,26 +104,50 @@ def thread_dehaze(stop_event, result_queue):
 def update_value(x):
     global res
     res = x
+
+start_time = 0 # Time store variable
+pos = [] # Stores x,y
+
 # Define the callback function
 def on_mouse(event, x, y, flags, param):
-    global shutdown
+    global shutdown,start_time,pos,debug_mode
     if event == cv.EVENT_LBUTTONDOWN:
         # Store the current time when the left mouse button is pressed down
-        param['start_time'] = cv.getTickCount()
+        start_time = time.perf_counter()
+        pos = [x,y]
+        
     elif event == cv.EVENT_LBUTTONUP:
         # Calculate the duration of the left mouse button press
-        end_time = cv.getTickCount()
-        duration = (end_time - param['start_time']) / cv.getTickFrequency()
+        end_time = time.perf_counter()
+        duration = (end_time - start_time)
 
+        if (math.hypot(x - pos[0], y - pos[1])/param.shape[0])*100 > swipe_threshold:
+
+            cv.destroyAllWindows()
+
+            if not debug_mode:
+                cv.namedWindow("Original",cv.WINDOW_GUI_EXPANDED)
+                cv.namedWindow("Dehazed", cv.WINDOW_GUI_EXPANDED)
+
+                cv.resizeWindow("Original", 400, 300)
+                cv.resizeWindow("Dehazed", 400, 300)
+            else:
+                # Create a named window and set it to full screen
+                cv.namedWindow("window", cv.WINDOW_NORMAL)
+                cv.setWindowProperty("window", cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
+                cv.createTrackbar('Resolution', "window", res, 100, update_value)
+                cv.setTrackbarMin('Resolution',"window",10)
+            debug_mode = not debug_mode
+           
         # If the duration is longer than 3 seconds, shutdown
-        if duration > 3:
+        elif duration > longpress_threshold:
             print("Will shutdown")
             cv.destroyAllWindows()
             shutdown=1
             stop_event.set()
 
             # Shutdown the Raspberry Pi
-            os.system("sudo shutdown -h now")
+            os.system(shutdown_command)
 
 
 if __name__ == "__main__":
@@ -136,9 +159,8 @@ if __name__ == "__main__":
     thread = threading.Thread(target=thread_dehaze, args=(stop_event, result_queue))
     thread.start()
 
-    shutdown=0 #If button has been ever pressed
-    button_down = False # Button state
-    
+    shutdown = 0 # If button has been ever pressed
+
     # Create a named window and set it to full screen
     cv.namedWindow("window", cv.WINDOW_NORMAL)
     cv.setWindowProperty("window", cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
@@ -148,14 +170,26 @@ if __name__ == "__main__":
     while True:
         # Handle new result, if any
         try:
-            # Get the most recently dehazed frame from the result queue
-            result_frame = result_queue.get_nowait()
+            if debug_mode == False:
+                # Get the most recently dehazed frame from the result queue
+                result_frame = result_queue.get_nowait()
             
-            cv.imshow("window", result_frame)# Show the most recently dehazed frame in the window
-            cv.setMouseCallback("window", on_mouse,{'start_time': 0})#Add a callback event
+                cv.imshow("window", result_frame)# Show the most recently dehazed frame in the window
+                cv.setMouseCallback("window", on_mouse,param=result_frame)# Add a callback event
 
-            # Mark the task as done so that the queue frees up memory
-            result_queue.task_done()
+                # Mark the task as done so that the queue frees up memory
+                result_queue.task_done()
+            else:
+                # Get the most recently dehazed frame from the result queue
+                result_frame = result_queue.get_nowait()
+                cv.imshow("Original", result_frame[1])# Show the most recently dehazed frame's original version in the window
+                cv.imshow("Dehazed", result_frame[0])# Show the most recently dehazed frame in the window
+
+                cv.setMouseCallback("Original", on_mouse,param=result_frame[1])# Add a callback event
+                cv.setMouseCallback("Dehazed", on_mouse,param=result_frame[0])# Add a callback event
+
+                # Mark the task as done so that the queue frees up memory
+                result_queue.task_done()
         
         except queue.Empty:
             pass
