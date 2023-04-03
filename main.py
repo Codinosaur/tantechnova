@@ -64,7 +64,6 @@ def thread_dehaze(stop_event, result_queue):
     Ratio = cap.read()[1].shape[:2][::-1]  # Aspect ratio of camera (not in simplified form), format=[width,height]
 
     while not stop_event.is_set():
-        global debug_mode
 
         # Read the video frame
         (success, frame) = cap.read()
@@ -93,10 +92,7 @@ def thread_dehaze(stop_event, result_queue):
         dehazed_frame = cv.cvtColor(dehazed_frame, cv.COLOR_RGB2BGR)
 
         # Put the dehazed frame into the result queue
-        if debug_mode:
-            result_queue.put([dehazed_frame,temp_frame])
-        else:
-            result_queue.put(dehazed_frame)
+        result_queue.put([dehazed_frame,temp_frame])
 
     # Release the video capture object
     cap.release()
@@ -121,7 +117,7 @@ def on_mouse(event, x, y, flags, param):
         end_time = time.perf_counter()
         duration = (end_time - start_time)
 
-        if (math.hypot(x - pos[0], y - pos[1])/param.shape[0])*100 > swipe_threshold:
+        if ((y - pos[1])/param.shape[0])*100 > swipe_threshold:
 
             cv.destroyAllWindows()
 
@@ -174,8 +170,8 @@ if __name__ == "__main__":
                 # Get the most recently dehazed frame from the result queue
                 result_frame = result_queue.get_nowait()
             
-                cv.imshow("window", result_frame)# Show the most recently dehazed frame in the window
-                cv.setMouseCallback("window", on_mouse,param=result_frame)# Add a callback event
+                cv.imshow("window", result_frame[0])# Show the most recently dehazed frame in the window
+                cv.setMouseCallback("window", on_mouse,param=result_frame[0])# Add a callback event
 
                 # Mark the task as done so that the queue frees up memory
                 result_queue.task_done()
