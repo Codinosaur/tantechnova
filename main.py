@@ -54,6 +54,12 @@ model.load_state_dict(torch.load(dehazemodel,map_location=torch.device('cpu')))
 device = torch.device('cpu')
 model.to(device)
 
+# Initialize the video capture object and check if it's successfully opened
+
+cap = cv.VideoCapture(camera)
+assert cap.isOpened()
+Ratio = cap.read()[1].shape[:2][::-1] # Stores ratio from a sample output
+cap.release()
 
 # Define a function to dehaze a video stream in a separate thread
 def thread_dehaze(stop_event, result_queue):
@@ -92,7 +98,7 @@ def thread_dehaze(stop_event, result_queue):
         dehazed_frame = cv.cvtColor(dehazed_frame, cv.COLOR_RGB2BGR)
 
         # Put the dehazed frame into the result queue
-        result_queue.put([dehazed_frame,temp_frame])
+        result_queue.put([temp_frame,dehazed_frame])
 
     # Release the video capture object
     cap.release()
@@ -117,22 +123,9 @@ def on_mouse(event, x, y, flags, param):
         end_time = time.perf_counter()
         duration = (end_time - start_time)
 
-        if ((y - pos[1])/param.shape[0])*100 > swipe_threshold:
+        if ((y - pos[1])/((param[0]*res)/100))*100 > swipe_threshold:
 
-            cv.destroyAllWindows()
 
-            if not debug_mode:
-                cv.namedWindow("Original",cv.WINDOW_GUI_EXPANDED)
-                cv.namedWindow("Dehazed", cv.WINDOW_GUI_EXPANDED)
-
-                cv.resizeWindow("Original", 400, 300)
-                cv.resizeWindow("Dehazed", 400, 300)
-            else:
-                # Create a named window and set it to full screen
-                cv.namedWindow("window", cv.WINDOW_NORMAL)
-                cv.setWindowProperty("window", cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
-                cv.createTrackbar('Resolution', "window", res, 100, update_value)
-                cv.setTrackbarMin('Resolution',"window",10)
             debug_mode = not debug_mode
            
         # If the duration is longer than 3 seconds, shutdown
@@ -162,38 +155,27 @@ if __name__ == "__main__":
     cv.setWindowProperty("window", cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
     cv.createTrackbar('Resolution', "window", res, 100, update_value)
     cv.setTrackbarMin('Resolution',"window",10)
+    cv.setMouseCallback("window", on_mouse,param=Ratio) # Add a callback event
 
     while True:
         # Handle new result, if any
         try:
+            # Get the most recently dehazed frame from the result queue
+            result_frame = result_queue.get_nowait()
             if debug_mode == False:
-                # Get the most recently dehazed frame from the result queue
-                result_frame = result_queue.get_nowait()
-            
-                cv.imshow("window", result_frame[0])# Show the most recently dehazed frame in the window
-                cv.setMouseCallback("window", on_mouse,param=result_frame[0])# Add a callback event
-
-                # Mark the task as done so that the queue frees up memory
-                result_queue.task_done()
+                cv.imshow("window", result_frame[1])# Show the most recently dehazed frame in the window
             else:
-                # Get the most recently dehazed frame from the result queue
-                result_frame = result_queue.get_nowait()
-                cv.imshow("Original", result_frame[1])# Show the most recently dehazed frame's original version in the window
-                cv.imshow("Dehazed", result_frame[0])# Show the most recently dehazed frame in the window
-
-                cv.setMouseCallback("Original", on_mouse,param=result_frame[1])# Add a callback event
-                cv.setMouseCallback("Dehazed", on_mouse,param=result_frame[0])# Add a callback event
-
-                # Mark the task as done so that the queue frees up memory
-                result_queue.task_done()
+                cv.imshow("window", cv.hconcat(result_frame))# Show the most recently dehazed frame in the window
+            # Mark the task as done so that the queue frees up memory
+            result_queue.task_done()
         
         except queue.Empty:
             pass
 
         # Process GUI events
-        key = cv.waitKey(1)
+        key = cv.waitKey(1) & 0xFF
         # If Enter key is pressed, break the loop and stop the dehazing thread
-        if key == 13 or shutdown==1:#When shutdown key or enter pressed,break the loop and close the program
+        if key == 13 or shutdown==1:# When shutdown key or enter pressed,break the loop and close the program
             break
 
     # Signal the dehazing thread to stop and wait for it to join
