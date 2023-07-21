@@ -9,6 +9,10 @@ import queue
 import math
 import time
 import os
+import glob
+
+
+record=True
 
 # Define the dehaze network as a subclass of torch.nn.Module
 class dehaze_net(nn.Module):
@@ -17,7 +21,6 @@ class dehaze_net(nn.Module):
         super(dehaze_net, self).__init__()
 
         # Define the layers of the network
-        self.relu = nn.ReLU(inplace=True) 
         self.e_conv1 = nn.Conv2d(3,3,1,1,0,bias=True)  
         self.e_conv2 = nn.Conv2d(3,3,3,1,1,bias=True)  
         self.e_conv3 = nn.Conv2d(6,3,5,1,2,bias=True)  
@@ -28,21 +31,22 @@ class dehaze_net(nn.Module):
         source = []
         source.append(x)
 
-        x1 = self.relu(self.e_conv1(x))
-        x2 = self.relu(self.e_conv2(x1))
+        x1 = nn.functional.relu(self.e_conv1(x))
+        x2 = nn.functional.relu(self.e_conv2(x1))
 
-        concat1 = torch.cat((x1,x2), 1)
-        x3 = self.relu(self.e_conv3(concat1))
+        concat1 = torch.cat((x1,x2), dim=1)
+        x3 = nn.functional.relu(self.e_conv3(concat1))
 
-        concat2 = torch.cat((x2, x3), 1)
-        x4 = self.relu(self.e_conv4(concat2))
+        concat2 = torch.cat((x2, x3), dim=1)
+        x4 = nn.functional.relu(self.e_conv4(concat2))
 
-        concat3 = torch.cat((x1,x2,x3,x4),1)
-        x5 = self.relu(self.e_conv5(concat3))
+        concat3 = torch.cat((x1,x2,x3,x4), dim=1)
+        x5 = nn.functional.relu(self.e_conv5(concat3))
 
-        clean_image = self.relu((x5 * x) - x5 + 1) 
+        clean_image = nn.functional.relu((x5 * x) - x5 + 1) 
         
         return clean_image
+
 
 # Create an instance of the dehaze network
 model = dehaze_net()
@@ -68,16 +72,17 @@ def thread_dehaze(stop_event, result_queue):
     cap = cv.VideoCapture(camera)# Load the video capture, change -1 to 0 to use the code in windows !important
     assert cap.isOpened()
     Ratio = cap.read()[1].shape[:2][::-1]  # Aspect ratio of camera (not in simplified form), format=[width,height]
-
+    out = cv.VideoWriter('./videos/'+str(len(glob.glob('./videos/*.mp4')))+'_vid.mp4',cv.VideoWriter_fourcc(*'avc1'), fps, Ratio)
     while not stop_event.is_set():
-
         # Read the video frame
         (success, frame) = cap.read()
+        if record:
+            out.write(frame)
 
         # If frame is not read properly, break and go for another frame
         if not success:
             break
-
+        
         # Resize the frame with the set resolution and aspect ratio
         frame = cv.resize(frame, (int(res*Ratio[0]/100), int(res*Ratio[1]/100)))# Resize image for fast dehazing
         temp_frame = frame # Stores the initial frame,temporarily
@@ -100,8 +105,10 @@ def thread_dehaze(stop_event, result_queue):
         # Put the dehazed frame into the result queue
         result_queue.put([temp_frame,dehazed_frame])
 
+
     # Release the video capture object
     cap.release()
+    out.release()
 
 def update_value(x):
     global res
@@ -123,13 +130,13 @@ def on_mouse(event, x, y, flags, param):
         end_time = time.perf_counter()
         duration = (end_time - start_time)
 
-        if ((y - pos[1])/((param[0]*res)/100))*100 > swipe_threshold:
+        if ((y - pos[1])/((param[1]*res)/100))*100 > swipe_threshold:
 
 
             debug_mode = not debug_mode
            
         # If the duration is longer than 3 seconds, shutdown
-        elif duration > longpress_threshold:
+        elif ((pos[0] - x)/((param[0]*res)/100))*100 > shutdown_threshold:
             print("Will shutdown")
             cv.destroyAllWindows()
             shutdown=1
@@ -151,11 +158,12 @@ if __name__ == "__main__":
     shutdown = 0 # If button has been ever pressed
 
     # Create a named window and set it to full screen
-    cv.namedWindow("window", cv.WINDOW_NORMAL)
+    cv.namedWindow("window",cv.WINDOW_NORMAL | cv.WINDOW_GUI_NORMAL)
     cv.setWindowProperty("window", cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
     cv.createTrackbar('Resolution', "window", res, 100, update_value)
     cv.setTrackbarMin('Resolution',"window",10)
     cv.setMouseCallback("window", on_mouse,param=Ratio) # Add a callback event
+
 
     while True:
         # Handle new result, if any
@@ -166,6 +174,7 @@ if __name__ == "__main__":
                 cv.imshow("window", result_frame[1])# Show the most recently dehazed frame in the window
             else:
                 cv.imshow("window", cv.hconcat(result_frame))# Show the most recently dehazed frame in the window
+
             # Mark the task as done so that the queue frees up memory
             result_queue.task_done()
         
@@ -174,6 +183,8 @@ if __name__ == "__main__":
 
         # Process GUI events
         key = cv.waitKey(1) & 0xFF
+        if key == 32:
+            record = not record
         # If Enter key is pressed, break the loop and stop the dehazing thread
         if key == 13 or shutdown==1:# When shutdown key or enter pressed,break the loop and close the program
             break
