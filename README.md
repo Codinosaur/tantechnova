@@ -1,5 +1,5 @@
-# ATL Marathon 2023
-This is our submission to the ATL Marathon 2023.
+# TanTechnova 2023
+This is our submission to the TanTechnova 2023.
 
 The project supports video dehazing, live on the Raspberry Pi 400.
 
